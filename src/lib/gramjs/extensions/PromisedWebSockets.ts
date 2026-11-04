@@ -1,5 +1,7 @@
 import { Mutex } from 'async-mutex';
 
+import { advanceProxy, getProxyDomain } from './proxyConfig';
+
 const mutex = new Mutex();
 
 const closeError = new Error('WebSocket was closed');
@@ -8,25 +10,6 @@ const MAX_TIMEOUT = 30000;
 
 // Regex to match Telegram WebSocket hostnames
 const TELEGRAM_WS_HOST_PATTERN = /^[a-z0-9-]+\.(?:web\.)?telegram\.org$/i;
-
-/**
- * Reads proxy settings from the worker's `self` context.
- * These are set by client.ts during initApi from localStorage values.
- */
-function getProxyConfig(): { enabled: boolean; domain: string } {
-  try {
-    const enabled = Boolean((self as any).proxyEnabled);
-    let domain = ((self as any).proxyUrl || '') as string;
-    // Clean the domain: strip protocol prefixes and trailing slashes
-    domain = domain
-      .replace(/^https?:\/\//i, '')
-      .replace(/^wss?:\/\//i, '')
-      .replace(/\/+$/, '');
-    return { enabled, domain };
-  } catch {
-    return { enabled: false, domain: '' };
-  }
-}
 
 export default class PromisedWebSockets {
   private closed: boolean;
@@ -114,41 +97,43 @@ export default class PromisedWebSockets {
     this.closed = false;
     this.website = this.getWebSocketLink(ip, port, isTestServer, isPremium);
 
-    // Check if proxy is enabled and the host is a Telegram domain
-    const proxy = getProxyConfig();
-    if (proxy.enabled && proxy.domain && TELEGRAM_WS_HOST_PATTERN.test(ip)) {
-      // Route through the proxy worker:
-      // Original: wss://zws1.web.telegram.org:443/apiws
-      // Proxied:  wss://<proxy-domain>/zws1.web.telegram.org/apiws
+    const domain = TELEGRAM_WS_HOST_PATTERN.test(ip) ? getProxyDomain() : undefined;
+    if (domain) {
       const path = `/apiws${isTestServer ? '_test' : ''}${isPremium ? '_premium' : ''}`;
-      const proxyUrl = `wss://${proxy.domain}/${ip}${path}`;
-      // eslint-disable-next-line no-console
-      console.log(`[Proxy] 🌐 Routing ${ip}${path} → ${proxy.domain}`);
-      this.website = proxyUrl;
-      // CF Workers WebSocketPair doesn't support subprotocol negotiation, so omit 'binary'
-      this.client = new WebSocket(proxyUrl);
+      this.website = `wss://${domain}/${ip}${path}`;
+      this.client = new WebSocket(this.website);
     } else {
       this.client = new WebSocket(this.website, 'binary');
     }
+    const socket = this.client;
+    let hasFailed = false;
+    const markFailed = () => {
+      if (!hasFailed && domain) advanceProxy(domain);
+      hasFailed = true;
+    };
     return new Promise((resolve, reject) => {
       if (!this.client) return;
       let hasResolved = false;
       let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
-      this.client.onopen = () => {
+      socket.onopen = () => {
+        this.timeout = CONNECTION_TIMEOUT;
         this.receive();
         resolve(this);
         hasResolved = true;
         if (timeout) clearTimeout(timeout);
       };
-      this.client.onerror = (error) => {
+      socket.onerror = (error) => {
+        markFailed();
         // eslint-disable-next-line no-console
         console.error('WebSocket error', error);
         reject(error);
         hasResolved = true;
         if (timeout) clearTimeout(timeout);
       };
-      this.client.onclose = (event) => {
+      socket.onclose = (event) => {
         const { code, reason, wasClean } = event;
+        if (code !== 1000 || !hasResolved) markFailed();
+        if (!hasResolved) reject(closeError);
         if (code !== 1000) {
           // eslint-disable-next-line no-console
           console.error(`Socket ${ip} closed. Code: ${code}, reason: ${reason}, was clean: ${wasClean}`);
@@ -166,6 +151,8 @@ export default class PromisedWebSockets {
       timeout = setTimeout(() => {
         if (hasResolved) return;
 
+        markFailed();
+        hasResolved = true;
         reject(new Error('WebSocket connection timeout'));
         this.resolveRead?.(false);
         this.closed = true;
@@ -177,14 +164,6 @@ export default class PromisedWebSockets {
         this.timeout = Math.min(this.timeout, MAX_TIMEOUT);
         timeout = undefined;
       }, this.timeout);
-
-      // CONTEST
-      // Seems to not be working, at least in a web worker
-
-      self.addEventListener('offline', () => {
-        this.close();
-        this.resolveRead?.(false);
-      });
     });
   }
 

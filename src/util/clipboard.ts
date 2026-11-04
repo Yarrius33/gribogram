@@ -1,5 +1,3 @@
-import { DEBUG } from '../config';
-
 export const CLIPBOARD_ITEM_SUPPORTED = window.navigator.clipboard && window.ClipboardItem;
 
 const textCopyEl = document.createElement('textarea');
@@ -41,22 +39,36 @@ export const copyHtmlToClipboard = (html: string, text: string): void => {
   ]);
 };
 
-export const copyImageToClipboard = (imageUrl?: string) => {
-  if (!imageUrl) return;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const imageEl = new Image();
-  imageEl.onload = (e: Event) => {
-    if (ctx && e.currentTarget) {
-      const img = e.currentTarget as HTMLImageElement;
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0, img.width, img.height);
-      canvas.toBlob(copyBlobToClipboard, 'image/png', 1);
-    }
-  };
-
-  imageEl.src = imageUrl;
+export const copyImageToClipboard = async (imageUrl?: string): Promise<boolean> => {
+  if (!imageUrl || !CLIPBOARD_ITEM_SUPPORTED) return false;
+  const png = new Promise<Blob>((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    const image = new Image();
+    image.onload = () => {
+      try {
+        if (!context) throw new Error('Canvas unavailable');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        context.drawImage(image, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Image conversion failed'));
+        }, 'image/png');
+      } catch (err) {
+        reject(err);
+      }
+    };
+    image.onerror = () => reject(new Error('Image unavailable'));
+    image.src = imageUrl;
+  });
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    return true;
+  } catch {
+    void png.catch(() => undefined);
+    return false;
+  }
 };
 
 export const copyTextToClipboardFromPromise = async (
@@ -103,22 +115,3 @@ export const copyTextToClipboardFromPromise = async (
   }
   onSuccess();
 };
-
-async function copyBlobToClipboard(pngBlob: Blob | null) {
-  if (!pngBlob || !CLIPBOARD_ITEM_SUPPORTED) {
-    return;
-  }
-
-  try {
-    await window.navigator.clipboard.write?.([
-      new ClipboardItem({
-        [pngBlob.type]: pngBlob,
-      }),
-    ]);
-  } catch (error) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.error(error);
-    }
-  }
-}

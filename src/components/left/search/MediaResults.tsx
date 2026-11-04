@@ -8,6 +8,7 @@ import type { StateProps } from './helpers/createMapStateToProps';
 import { LoadMoreDirection, MediaViewerOrigin } from '../../../types';
 
 import { SLIDE_TRANSITION_DURATION } from '../../../config';
+import { isMessageCopyRestricted } from '../../../global/helpers/messages';
 import buildClassName from '../../../util/buildClassName';
 import { parseSearchResultKey } from '../../../util/keys/searchResultKey';
 import { MEMO_EMPTY_ARRAY } from '../../../util/memo';
@@ -94,7 +95,7 @@ const MediaResults: FC<OwnProps & StateProps> = ({
             key={`${message.chatId}-${message.id}`}
             idPrefix="search-media"
             message={message}
-            isProtected={isChatProtected || message.isProtected}
+            isProtected={isMessageCopyRestricted(message)}
             observeIntersection={observeIntersectionForMedia}
             onClick={handleSelectMedia}
           />

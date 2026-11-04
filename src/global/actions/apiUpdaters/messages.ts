@@ -11,6 +11,9 @@ import { MAIN_THREAD_ID } from '../../../api/types';
 
 import { SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
 import { areDeepEqual } from '../../../util/areDeepEqual';
+import {
+  archiveDeletedMessage, findReceivedMessages, isDeletedArchiveEnabled, rememberReceivedMessages,
+} from '../../../util/deletedMessageArchive';
 import { isUserId } from '../../../util/entities/ids';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import {
@@ -32,6 +35,8 @@ import {
   isActionMessage,
   isMessageLocal,
 } from '../../helpers';
+import { getMessageMediaHash } from '../../helpers/messageMedia';
+import { hasMessageTtl } from '../../helpers/messages';
 import { getMessageReplyInfo, getStoryReplyInfo } from '../../helpers/replies';
 import {
   addActionHandler,
@@ -116,6 +121,9 @@ let lastVideoProcessingNotificationTime = 0;
 addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
   switch (update['@type']) {
     case 'newMessage': {
+      if (global.currentUserId) {
+        void rememberReceivedMessages(global.currentUserId, [update.message]).catch(() => undefined);
+      }
       const {
         chatId, id, message, shouldForceReply, wasDrafted, poll, webPage,
       } = update;
@@ -387,6 +395,10 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
       }
 
       global = updateWithLocalMedia(global, chatId, id, false, message);
+      const updatedMessage = selectChatMessage(global, chatId, id);
+      if (global.currentUserId && updatedMessage) {
+        void rememberReceivedMessages(global.currentUserId, [updatedMessage]).catch(() => undefined);
+      }
 
       setGlobal(global);
 
@@ -643,7 +655,21 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
     case 'deleteMessages': {
       const { ids, chatId } = update;
 
-      deleteMessages(global, chatId, ids, actions);
+      if (global.currentUserId && isDeletedArchiveEnabled(global.currentUserId)) {
+        const archiveAccountId = global.currentUserId;
+        void findReceivedMessages(archiveAccountId, chatId, ids).then((messages) => {
+          let currentGlobal = getGlobal();
+          if (currentGlobal.currentUserId !== archiveAccountId) return;
+          const missing = messages.filter((message) => !selectChatMessage(currentGlobal, message.chatId, message.id));
+          currentGlobal = addMessages(currentGlobal, missing);
+          deleteMessages(currentGlobal, chatId, ids, actions);
+        }).catch(() => {
+          const currentGlobal = getGlobal();
+          if (currentGlobal.currentUserId === archiveAccountId) deleteMessages(currentGlobal, chatId, ids, actions);
+        });
+      } else {
+        deleteMessages(global, chatId, ids, actions);
+      }
       break;
     }
 
@@ -1271,6 +1297,40 @@ export function deleteThread<T extends GlobalState>(
 export function deleteMessages<T extends GlobalState>(
   global: T, chatId: string | undefined, ids: number[], actions: RequiredGlobalActions,
 ) {
+  const retainedIds = new Set<number>();
+  const retainedChatIds = new Set<string>();
+  const archiveUserId = global.currentUserId;
+  if (archiveUserId && isDeletedArchiveEnabled(archiveUserId)) {
+    for (const id of ids) {
+      const sourceChatId = chatId || selectCommonBoxChatId(global, id);
+      const message = sourceChatId ? selectChatMessage(global, sourceChatId, id) : undefined;
+      if (message?.localDeletedAt) {
+        retainedIds.add(id);
+        retainedChatIds.add(message.chatId);
+        continue;
+      }
+      if (!message || isMessageLocal(message) || hasMessageTtl(message)
+        || message.content.paidMedia || message.content.action) continue;
+      const sourceChat = selectChat(global, message.chatId);
+      const hashes = (['full', 'download', 'preview', 'inline'] as const)
+        .map((target) => getMessageMediaHash(message, {}, target)).filter(Boolean);
+      retainedIds.add(id);
+      retainedChatIds.add(message.chatId);
+      global = updateChatMessage(global, message.chatId, id, { localDeletedAt: Date.now(), isDeleting: false });
+      void archiveDeletedMessage(archiveUserId, message, sourceChat?.title || message.chatId, hashes)
+        .catch(() => actions.showNotification({
+          message: { key: 'GriboArchiveSaveError' }, tabId: getCurrentTabId(),
+        }));
+    }
+  }
+
+  if (retainedIds.size) {
+    setGlobal(global);
+    retainedChatIds.forEach((id) => actions.requestChatUpdate({ chatId: id }));
+    ids = ids.filter((id) => !retainedIds.has(id));
+    if (!ids.length) return;
+  }
+
   // Channel update
 
   if (chatId) {

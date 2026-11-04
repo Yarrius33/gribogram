@@ -2002,6 +2002,46 @@ export interface LangPair {
   'GiftPreviewToggleRegularModels': undefined;
   'AriaGiftPreviewPlay': undefined;
   'AriaGiftPreviewStop': undefined;
+  'GriboProxyTitle': undefined;
+  'GriboProxyEnable': undefined;
+  'GriboProxyAddresses': undefined;
+  'GriboProxyImportUrl': undefined;
+  'GriboProxyImport': undefined;
+  'GriboProxyImportHint': undefined;
+  'GriboProxySaved': undefined;
+  'GriboProxyError': undefined;
+  'GriboAppName': undefined;
+  'GriboLocalAiTitle': undefined;
+  'GriboLocalAiButton': undefined;
+  'GriboLocalAiNotice': undefined;
+  'GriboLocalAiTask': undefined;
+  'GriboAiProofread': undefined;
+  'GriboAiBusiness': undefined;
+  'GriboAiFriendly': undefined;
+  'GriboAiIronic': undefined;
+  'GriboLocalAiGenerate': undefined;
+  'GriboLocalAiApply': undefined;
+  'GriboLocalAiError': undefined;
+  'GriboQrTitle': undefined;
+  'GriboArchiveTitle': undefined;
+  'GriboArchiveHint': undefined;
+  'GriboArchiveEnable': undefined;
+  'GriboArchiveOpen': undefined;
+  'GriboArchiveClear': undefined;
+  'GriboArchiveDownload': undefined;
+  'GriboArchiveMediaOnly': undefined;
+  'GriboArchiveEmpty': undefined;
+  'GriboArchiveSaveError': undefined;
+  'GriboDeletedLabel': undefined;
+  'GriboPublicChannel': undefined;
+  'GriboPublicChannelOpen': undefined;
+  'GriboPublicChannelInvalid': undefined;
+  'GriboCopyImage': undefined;
+  'GriboImageCopied': undefined;
+  'GriboImageCopyError': undefined;
+  'GriboContentCopyFailed': undefined;
+  'GriboArchivePreviewOnly': undefined;
+  'GriboContentCopyPreparing': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {
@@ -3511,6 +3551,9 @@ export interface LangPairWithVariables<V = LangVariable> {
   };
   'BotAuthSuccessText': {
     'url': V;
+  };
+  'GriboProxyHint': {
+    'count': V;
   };
 }
 

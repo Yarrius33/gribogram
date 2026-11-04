@@ -9,6 +9,7 @@ import type { StateProps } from './helpers/createMapStateToProps';
 import { LoadMoreDirection } from '../../../types';
 
 import { SLIDE_TRANSITION_DURATION } from '../../../config';
+import { isMessageCopyRestricted } from '../../../global/helpers/messages';
 import { formatMonthAndYear, toYearMonth } from '../../../util/dates/dateFormat';
 import { parseSearchResultKey } from '../../../util/keys/searchResultKey';
 import { MEMO_EMPTY_ARRAY } from '../../../util/memo';
@@ -110,7 +111,7 @@ const LinkResults: FC<OwnProps & StateProps> = ({
               key={message.id}
               message={message}
               senderTitle={getSenderName(lang, message, chatsById, usersById)}
-              isProtected={isChatProtected || message.isProtected}
+              isProtected={isMessageCopyRestricted(message)}
               observeIntersection={observeIntersectionForMedia}
               onMessageClick={handleMessageFocus}
             />

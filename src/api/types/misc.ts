@@ -26,6 +26,7 @@ export interface ApiInitialArgs {
   hasPasskeySupport?: boolean;
   proxyEnabled?: boolean;
   proxyUrl?: string;
+  proxyUrls?: string[];
 }
 
 export type ApiPasskeyOption = {
@@ -56,6 +57,8 @@ export interface ApiAttachment {
     width: number;
     height: number;
     duration?: number;
+    isRound?: boolean;
+    isGif?: boolean;
   };
   voice?: {
     duration: number;

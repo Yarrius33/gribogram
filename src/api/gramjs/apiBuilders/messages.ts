@@ -706,6 +706,8 @@ export function buildUploadingMedia(
             ...(previewBlobUrl && { thumbnail: { width, height, dataUri: previewBlobUrl } }),
             size,
             isSpoiler: shouldSendAsSpoiler,
+            isRound: attachment.quick.isRound,
+            isGif: attachment.quick.isGif,
           },
         };
       }

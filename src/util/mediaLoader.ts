@@ -1,3 +1,5 @@
+import { getGlobal } from '../global';
+
 import type {
   ApiOnProgress,
   ApiParsedMedia,
@@ -16,6 +18,7 @@ import {
   IS_OPUS_SUPPORTED, IS_PROGRESSIVE_SUPPORTED,
 } from './browser/windowEnvironment';
 import * as cacheApi from './cacheApi';
+import { getArchivedMedia } from './deletedMessageArchive';
 import { fetchBlob } from './files';
 import { ACCOUNT_SLOT } from './multiaccount';
 import { oggToWav } from './oggToWav';
@@ -36,13 +39,19 @@ const fetchPromises = new Map<string, Promise<ApiPreparedMedia | undefined>>();
 const progressCallbacks = new Map<string, Map<string, ApiOnProgress>>();
 const cancellableCallbacks = new Map<string, ApiOnProgress>();
 
-export function fetch<T extends ApiMediaFormat>(
+export async function fetch<T extends ApiMediaFormat>(
   url: string,
   mediaFormat: T,
   isHtmlAllowed = false,
   onProgress?: ApiOnProgress,
   callbackUniqueId?: string,
 ): Promise<ApiPreparedMedia> {
+  if (mediaFormat === ApiMediaFormat.Progressive || mediaFormat === ApiMediaFormat.DownloadUrl) {
+    const global = getGlobal();
+    const archived = global.currentUserId
+      ? await getArchivedMedia(global.currentUserId, url).catch(() => undefined) : undefined;
+    if (archived) return prepareMedia(archived);
+  }
   if (mediaFormat === ApiMediaFormat.Progressive) {
     return (
       IS_PROGRESSIVE_SUPPORTED
@@ -133,7 +142,10 @@ async function fetchFromCacheOrRemote(
 ): Promise<string> {
   if (!MEDIA_CACHE_DISABLED) {
     const cacheName = url.startsWith('avatar') ? MEDIA_CACHE_NAME_AVATARS : MEDIA_CACHE_NAME;
-    const cached = await cacheApi.fetch(cacheName, url, asCacheApiType[mediaFormat]!, isHtmlAllowed);
+    const cachedFromCache = await cacheApi.fetch(cacheName, url, asCacheApiType[mediaFormat]!, isHtmlAllowed);
+    const global = getGlobal();
+    const cached = cachedFromCache || (global.currentUserId && mediaFormat === ApiMediaFormat.BlobUrl
+      ? await getArchivedMedia(global.currentUserId, url).catch(() => undefined) : undefined);
 
     if (cached) {
       let media = cached;

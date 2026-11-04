@@ -27,11 +27,11 @@ import './Avatar.scss';
 import appStyles from '../App.module.scss';
 import styles from './UiLoader.module.scss';
 
+import telegramLogoPath from '../../assets/gribogram-red.svg';
 import starIconPath from '../../assets/icons/star/star.webp';
 import lockPreviewPath from '../../assets/lock.png';
 import monkeyPath from '../../assets/monkey.svg';
 import spoilerMaskPath from '../../assets/spoilers/mask.svg';
-import telegramLogoPath from '../../assets/telegram-logo.svg';
 
 export type UiLoaderPage =
   'main'

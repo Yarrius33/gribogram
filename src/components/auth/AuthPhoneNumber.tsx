@@ -22,6 +22,7 @@ import useLangString from '../../hooks/useLangString';
 import useLastCallback from '../../hooks/useLastCallback';
 import useMultiaccountInfo from '../../hooks/useMultiaccountInfo';
 
+import ProxySettings from '../common/ProxySettings';
 import Button from '../ui/Button';
 import Checkbox from '../ui/Checkbox';
 import InputText from '../ui/InputText';
@@ -29,27 +30,6 @@ import Loading from '../ui/Loading';
 import CountryCodeInput from './CountryCodeInput';
 
 import monkeyPath from '../../assets/monkey.svg';
-
-const PROXY_SETTINGS_KEY = 'tt_proxy_settings';
-
-// Default proxy URL from environment variable (set at build time via PROXY_URL env var)
-const ENV_PROXY_URL = process.env.PROXY_URL || '';
-
-function getProxySettings(): { enabled: boolean; url: string } {
-  try {
-    const raw = localStorage.getItem(PROXY_SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  // If no user override in localStorage, use env default
-  if (ENV_PROXY_URL) {
-    return { enabled: true, url: ENV_PROXY_URL };
-  }
-  return { enabled: false, url: '' };
-}
-
-function saveProxySettings(enabled: boolean, url: string) {
-  localStorage.setItem(PROXY_SETTINGS_KEY, JSON.stringify({ enabled, url }));
-}
 
 type StateProps = {
   auth: GlobalState['auth'];
@@ -103,11 +83,6 @@ const AuthPhoneNumber = ({
   const [isTouched, setIsTouched] = useState(false);
   const [lastSelection, setLastSelection] = useState<[number, number] | undefined>();
   const [isLoading, markIsLoading, unmarkIsLoading] = useFlag();
-
-  // Proxy settings state
-  const savedProxy = getProxySettings();
-  const [isProxyEnabled, setIsProxyEnabled] = useState(savedProxy.enabled);
-  const [proxyUrl, setProxyUrl] = useState(savedProxy.url);
 
   const accountsInfo = useMultiaccountInfo();
   const hasActiveAccount = Object.values(accountsInfo).length > 0;
@@ -264,18 +239,6 @@ const AuthPhoneNumber = ({
     loginWithPasskey();
   });
 
-  const handleProxyToggle = useLastCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked;
-    setIsProxyEnabled(enabled);
-    saveProxySettings(enabled, proxyUrl);
-  });
-
-  const handleProxyUrlChange = useLastCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value;
-    setProxyUrl(url);
-    saveProxySettings(isProxyEnabled, url);
-  });
-
   const isAuthReady = state === 'authorizationStateWaitPhoneNumber';
 
   return (
@@ -292,7 +255,7 @@ const AuthPhoneNumber = ({
       )}
       <div className="auth-form">
         <div id="logo" />
-        <h1>{lang('AuthTitle')}</h1>
+        <h1>{lang('GriboAppName')}</h1>
         <p className="note">{lang('StartText')}</p>
         <form className="form" action="" onSubmit={handleSubmit}>
           <CountryCodeInput
@@ -359,62 +322,8 @@ const AuthPhoneNumber = ({
           )}
         </form>
 
-        {/* Proxy Settings Section */}
-        <div className="proxy-settings">
-          <div className="proxy-header">
-            <span className="proxy-icon">🌐</span>
-            <span className="proxy-title">Proxy Connection</span>
-          </div>
-          <Checkbox
-            id="proxy-enabled"
-            label="Enable WebSocket Proxy"
-            checked={isProxyEnabled}
-            onChange={handleProxyToggle}
-          />
-          {isProxyEnabled && (
-            <InputText
-              id="proxy-url"
-              label="Proxy Domain (e.g. proxy.yourdomain.com)"
-              value={proxyUrl}
-              onChange={handleProxyUrlChange}
-            />
-          )}
-          {isProxyEnabled && proxyUrl && (
-            <p className="proxy-status proxy-active">
-              ✅ Proxy active — connections will route through your worker
-            </p>
-          )}
-          {isProxyEnabled && !proxyUrl && (
-            <p className="proxy-status proxy-warning">
-              ⚠️ Enter your proxy worker domain to enable proxied connections
-            </p>
-          )}
-        </div>
+        <ProxySettings />
 
-        {/* Modified Client Info */}
-        <div className="mod-info">
-          <p className="mod-info-text">
-            This is a <strong>modified Telegram Web A client</strong> with proxy support
-            for regions where Telegram access is restricted.
-          </p>
-          <p className="mod-info-links">
-            <a
-              href="https://github.com/PBhadoo/telegram-tt"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              📦 Source Code
-            </a>
-            {' · '}
-            <a
-              href="https://github.com/CloudflareHackers/TG-WS-API"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              🔌 Proxy Server
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );

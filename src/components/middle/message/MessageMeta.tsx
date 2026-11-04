@@ -138,10 +138,10 @@ const MessageMeta: FC<OwnProps> = ({
   }, [lang, repliesThreadInfo]);
 
   const date = useMemo(() => {
-    const time = formatTime(oldLang, message.date * 1000);
+    const time = formatTime(oldLang, message.date * 1000, true);
     const baseDate = !withFullDate
       ? time
-      : formatPastTimeShort(oldLang, (message.forwardInfo?.date || message.date) * 1000, true);
+      : formatPastTimeShort(oldLang, (message.forwardInfo?.date || message.date) * 1000, true, true);
 
     if (repeatPeriodText) {
       return lang('FormatDateAtTime', { date: repeatPeriodText, time: baseDate });
@@ -211,6 +211,7 @@ const MessageMeta: FC<OwnProps> = ({
             <span className="message-imported" onClick={handleImportedClick}>{lang('MessageMetaImported')}</span>
           </>
         )}
+        {Boolean(message.localDeletedAt) && `${lang('GriboDeletedLabel')} `}
         {message.isEdited && `${lang('MessageMetaEdited')} `}
         {message.isVideoProcessingPending && `${lang('MessageMetaApproximate')} `}
         {date}

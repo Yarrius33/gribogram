@@ -382,6 +382,14 @@ class TelegramClient {
     await this.connect();
   }
 
+  async updateConnectionTransport(shouldAllowHttpTransport: boolean, shouldForceHttpTransport: boolean) {
+    this._shouldAllowHttpTransport = shouldAllowHttpTransport;
+    this._shouldForceHttpTransport = shouldForceHttpTransport;
+    this.disconnect();
+    this._sender = undefined;
+    await this.connect();
+  }
+
   setShouldDebugExportedSenders(shouldDebugExportedSenders: boolean) {
     this._shouldDebugExportedSenders = shouldDebugExportedSenders;
   }

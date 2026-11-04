@@ -21,6 +21,7 @@ import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { ACCOUNT_SLOT, getAccountsInfo } from '../../../util/multiaccount';
 import { unsubscribe } from '../../../util/notifications';
 import { clearEncryptedSession, encryptSession, forgetPasscode } from '../../../util/passcode';
+import { loadProxySettings, PROXY_SETTINGS_EVENT, PROXY_SETTINGS_KEY } from '../../../util/proxySettings';
 import { parseInitialLocationHash, resetInitialLocationHash, resetLocationHash } from '../../../util/routing';
 import { pause } from '../../../util/schedulers';
 import {
@@ -43,6 +44,26 @@ import { updateAuth } from '../../reducers/auth';
 import { selectSharedSettings } from '../../selectors/sharedState';
 import { destroySharedStatePort } from '../../shared/sharedStateConnector';
 
+const PROXY_UPDATE_DELAY = 500;
+
+let hasProxyListeners = false;
+let proxyUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleProxyUpdate(event?: Event) {
+  clearTimeout(proxyUpdateTimeout);
+  proxyUpdateTimeout = setTimeout(() => {
+    if (!navigator.onLine) return;
+    const { enabled, urls } = loadProxySettings();
+    const global = getGlobal();
+    if (global.auth.state !== 'authorizationStateReady') {
+      if (event?.type === PROXY_SETTINGS_EVENT || event?.type === 'storage') window.location.reload();
+      return;
+    }
+    const { shouldAllowHttpTransport, shouldForceHttpTransport } = selectSharedSettings(global);
+    void callApi('updateProxySettings', enabled, urls, shouldAllowHttpTransport, shouldForceHttpTransport);
+  }, PROXY_UPDATE_DELAY);
+}
+
 addActionHandler('initApi', (global, actions): ActionReturnType => {
   const initialLocationHash = parseInitialLocationHash();
   const {
@@ -62,21 +83,7 @@ addActionHandler('initApi', (global, actions): ActionReturnType => {
     .map(({ userId }) => userId)
     .filter(Boolean);
 
-  // Read proxy settings from localStorage, falling back to env variable PROXY_URL
-  const envProxyUrl = process.env.PROXY_URL || '';
-  let proxyEnabled = Boolean(envProxyUrl); // Auto-enable if env var is set
-  let proxyUrl = envProxyUrl;
-  try {
-    const proxyRaw = localStorage.getItem('tt_proxy_settings');
-    if (proxyRaw) {
-      // User override from login page takes priority over env default
-      const proxySettings = JSON.parse(proxyRaw);
-      proxyEnabled = Boolean(proxySettings.enabled);
-      proxyUrl = proxySettings.url || '';
-    }
-  } catch (e) {
-    // Ignore parse errors
-  }
+  const proxySettings = loadProxySettings();
 
   void initApi(actions.apiUpdate, {
     userAgent: navigator.userAgent,
@@ -94,9 +101,21 @@ addActionHandler('initApi', (global, actions): ActionReturnType => {
     isTestServerRequested: hasTestParam,
     accountIds,
     hasPasskeySupport: IS_WEBAUTHN_SUPPORTED,
-    proxyEnabled,
-    proxyUrl,
+    proxyEnabled: proxySettings.enabled,
+    proxyUrl: proxySettings.url,
+    proxyUrls: proxySettings.urls,
   });
+
+  if (!hasProxyListeners) {
+    window.addEventListener(PROXY_SETTINGS_EVENT, scheduleProxyUpdate);
+    window.addEventListener('storage', (event) => {
+      if (event.key === PROXY_SETTINGS_KEY || !event.key) scheduleProxyUpdate(event);
+    });
+    window.addEventListener('online', scheduleProxyUpdate);
+    const connection = (navigator as Navigator & { connection?: EventTarget }).connection;
+    connection?.addEventListener('change', scheduleProxyUpdate);
+    hasProxyListeners = true;
+  }
 
   void setShouldEnableDebugLog(Boolean(shouldCollectDebugLogs));
 });

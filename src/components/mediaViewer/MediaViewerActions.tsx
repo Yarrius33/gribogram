@@ -16,12 +16,13 @@ import {
 } from '../../global/helpers';
 import {
   selectActiveDownloads,
-  selectAllowedMessageActionsSlow, selectCurrentChat,
+  selectAllowedMessageActionsSlow, selectCanForwardMessage,
+  selectCurrentChat,
   selectCurrentMessageList,
-  selectIsChatProtected,
   selectIsMessageProtected,
   selectTabState,
 } from '../../global/selectors';
+import { CLIPBOARD_ITEM_SUPPORTED, copyImageToClipboard } from '../../util/clipboard';
 import { isUserId } from '../../util/entities/ids';
 import selectViewableMedia from './helpers/getViewableMedia';
 
@@ -57,7 +58,7 @@ type OwnProps = {
 type StateProps = {
   activeDownloads: ActiveDownloads;
   isProtected?: boolean;
-  isChatProtected?: boolean;
+  canForwardContent?: boolean;
   canDelete?: boolean;
   chat?: ApiChat;
   canUpdate?: boolean;
@@ -71,7 +72,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
   mediaData,
   isVideo,
   chat,
-  isChatProtected,
+  canForwardContent,
   isProtected,
   canReportAvatar,
   canDelete,
@@ -154,6 +155,11 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
   });
 
   const lang = useOldLang();
+  const { showNotification } = getActions();
+  const handleCopyImage = useLastCallback(async () => {
+    const isCopied = await copyImageToClipboard(mediaData);
+    showNotification({ message: { key: isCopied ? 'GriboImageCopied' : 'GriboImageCopyError' } });
+  });
 
   const MenuButton: FC<{ onTrigger: () => void; isOpen?: boolean }> = useMemo(() => {
     return ({ onTrigger, isOpen }) => (
@@ -228,7 +234,10 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
 
   if (isMobile) {
     const menuItems: MenuItemProps[] = [];
-    if (isMessage && item.message.isForwardingAllowed && !item.message.content.action && !isChatProtected) {
+    if (!isProtected && !isVideo && mediaData && CLIPBOARD_ITEM_SUPPORTED) {
+      menuItems.push({ icon: 'copy', onClick: handleCopyImage, children: lang('GriboCopyImage') });
+    }
+    if (isMessage && canForwardContent && !item.message.content.action) {
       menuItems.push({
         icon: 'forward',
         onClick: onForward,
@@ -310,7 +319,7 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
 
   return (
     <div className="MediaViewerActions">
-      {isMessage && item.message.isForwardingAllowed && !isChatProtected && (
+      {isMessage && canForwardContent && (
         <Button
           round
           size="smaller"
@@ -318,6 +327,16 @@ const MediaViewerActions: FC<OwnProps & StateProps> = ({
           ariaLabel={lang('Forward')}
           onClick={onForward}
           iconName="forward"
+        />
+      )}
+      {!isProtected && !isVideo && mediaData && Boolean(CLIPBOARD_ITEM_SUPPORTED) && (
+        <Button
+          round
+          size="smaller"
+          color="translucent-white"
+          iconName="copy"
+          ariaLabel={lang('GriboCopyImage')}
+          onClick={handleCopyImage}
         />
       )}
       {renderDownloadButton()}
@@ -396,7 +415,7 @@ export default memo(withGlobal<OwnProps>(
     const { threadId } = selectCurrentMessageList(global) || {};
     const isProtected = selectIsMessageProtected(global, message);
     const activeDownloads = selectActiveDownloads(global);
-    const isChatProtected = message && selectIsChatProtected(global, message?.chatId);
+    const canForwardContent = message && selectCanForwardMessage(global, message);
     const { canDelete: canDeleteMessage } = (threadId
       && message && selectAllowedMessageActionsSlow(global, message, threadId)) || {};
     const isCurrentAvatar = avatarPhoto && (avatarPhoto.id === avatarOwner?.avatarPhotoId);
@@ -410,7 +429,7 @@ export default memo(withGlobal<OwnProps>(
       activeDownloads,
       isProtected,
       chat,
-      isChatProtected,
+      canForwardContent,
       canDelete,
       canUpdate,
       messageListType,

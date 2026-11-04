@@ -42,7 +42,7 @@ function toIsoString(date: Date) {
 }
 
 // @optimization `toLocaleTimeString` is avoided because of bad performance
-export function formatTime(lang: OldLangFn, datetime: number | Date) {
+export function formatTime(lang: OldLangFn, datetime: number | Date, withSeconds?: boolean) {
   const date = typeof datetime === 'number' ? new Date(datetime) : datetime;
   const timeFormat = lang.timeFormat || '24h';
 
@@ -50,16 +50,19 @@ export function formatTime(lang: OldLangFn, datetime: number | Date) {
   let marker = '';
   if (timeFormat === '12h') {
     marker = hours >= 12 ? '\xa0PM' : '\xa0AM'; // NBSP
-    hours = hours > 12 ? hours % 12 : hours;
+    hours = hours % 12 || 12;
   }
 
-  return `${String(hours).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}${marker}`;
+  const seconds = withSeconds ? `:${String(date.getSeconds()).padStart(2, '0')}` : '';
+  return `${String(hours).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}${seconds}${marker}`;
 }
 
-export function formatPastTimeShort(lang: OldLangFn, datetime: number | Date, alwaysShowTime = false) {
+export function formatPastTimeShort(
+  lang: OldLangFn, datetime: number | Date, alwaysShowTime = false, withSeconds?: boolean,
+) {
   const date = typeof datetime === 'number' ? new Date(datetime) : datetime;
 
-  const time = formatTime(lang, date);
+  const time = formatTime(lang, date, withSeconds);
 
   const today = getDayStart(new Date());
   if (date >= today) {

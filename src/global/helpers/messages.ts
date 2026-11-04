@@ -573,3 +573,16 @@ export function groupMessageIdsByThreadId(
 
   return grouped;
 }
+
+export function isMessageCopyRestricted(message: ApiMessage) {
+  return hasMessageTtl(message) || Boolean(message.content.paidMedia);
+}
+
+export function canCopyMessageAsNew(message: ApiMessage) {
+  const { content } = message;
+  if (content.ttlSeconds !== undefined || content.paidMedia || content.action || content.storyData
+    || content.pollId || content.invoice || content.todo || content.location || content.game
+    || content.giveaway || content.giveawayResults || content.dice) return false;
+  return Boolean(content.text?.text || content.photo || content.video || content.document || content.audio
+    || content.voice || content.sticker || content.contact);
+}

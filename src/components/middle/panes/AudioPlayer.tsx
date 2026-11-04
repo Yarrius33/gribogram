@@ -66,13 +66,15 @@ type StateProps = {
 };
 
 const PLAYBACK_RATES: Record<number, number> = {
-  0.5: 0.66,
-  0.75: 0.8,
+  0.5: 0.5,
+  0.75: 0.75,
   1: 1,
-  1.5: 1.4,
-  2: 1.8,
+  1.25: 1.25,
+  1.5: 1.5,
+  1.75: 1.75,
+  2: 2,
 };
-const PLAYBACK_RATE_VALUES = Object.keys(PLAYBACK_RATES).sort().map(Number);
+const PLAYBACK_RATE_VALUES = Object.keys(PLAYBACK_RATES).map(Number).sort((first, second) => first - second);
 
 const REGULAR_PLAYBACK_RATE = 1;
 const DEFAULT_FAST_PLAYBACK_RATE = 2;

@@ -23,6 +23,7 @@ import useMediaTransitionDeprecated from '../../hooks/useMediaTransitionDeprecat
 import useMultiaccountInfo from '../../hooks/useMultiaccountInfo';
 
 import AnimatedIcon from '../common/AnimatedIcon';
+import ProxySettings from '../common/ProxySettings';
 import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 
@@ -193,7 +194,7 @@ const AuthCode = ({
           </div>
           {!isQrMounted && <div className="qr-loading"><Loading /></div>}
         </div>
-        <h1>{lang('LoginQRTitle')}</h1>
+        <h1>{lang('GriboQrTitle')}</h1>
         <ol>
           <li><span>{lang('LoginQRHelp1')}</span></li>
           <li><span>{lang('LoginQRHelp2', undefined, { withNodes: true, withMarkdown: true })}</span></li>
@@ -214,6 +215,7 @@ const AuthCode = ({
             {continueText}
           </Button>
         )}
+        <ProxySettings />
       </div>
     </div>
   );

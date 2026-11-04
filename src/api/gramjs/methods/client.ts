@@ -7,6 +7,7 @@ import type { TwoFaParams } from '../../../lib/gramjs/client/2fa';
 import TelegramClient from '../../../lib/gramjs/client/TelegramClient';
 import { RPCError } from '../../../lib/gramjs/errors';
 import { Logger as GramJsLogger } from '../../../lib/gramjs/extensions/index';
+import { configureProxy } from '../../../lib/gramjs/extensions/proxyConfig';
 
 import type { ThreadId } from '../../../types';
 import type {
@@ -92,12 +93,10 @@ export async function init(initialArgs: ApiInitialArgs, onConnected?: NoneToVoid
     userAgent, platform, sessionData, isWebmSupported, maxBufferSize, webAuthToken, dcId,
     mockScenario, shouldForceHttpTransport, shouldAllowHttpTransport,
     shouldDebugExportedSenders, langCode, isTestServerRequested, accountIds,
-    hasPasskeySupport, proxyEnabled, proxyUrl,
+    hasPasskeySupport, proxyEnabled, proxyUrl, proxyUrls,
   } = initialArgs;
 
-  // Store proxy settings on self so PromisedWebSockets can access them
-  (self as any).proxyEnabled = Boolean(proxyEnabled);
-  (self as any).proxyUrl = proxyUrl || '';
+  configureProxy(Boolean(proxyEnabled), proxyUrls || (proxyUrl ? [proxyUrl] : []));
 
   const session = new sessions.CallbackSession(sessionData, onSessionUpdate);
 
@@ -116,8 +115,8 @@ export async function init(initialArgs: ApiInitialArgs, onConnected?: NoneToVoid
       useWSS: true,
       additionalDcsDisabled: IS_TEST,
       shouldDebugExportedSenders,
-      shouldForceHttpTransport,
-      shouldAllowHttpTransport,
+      shouldForceHttpTransport: proxyEnabled ? false : shouldForceHttpTransport,
+      shouldAllowHttpTransport: proxyEnabled ? false : shouldAllowHttpTransport,
       dcId,
       langPack: LANG_PACK,
       langCode,
@@ -214,6 +213,15 @@ export async function destroy(noLogOut = false, noClearLocalDb = false) {
 
 export function disconnect() {
   client.disconnect();
+}
+
+export async function updateProxySettings(
+  enabled: boolean, urls: string[], shouldAllowHttpTransport = false, shouldForceHttpTransport = false,
+) {
+  configureProxy(enabled, urls);
+  await client.updateConnectionTransport(
+    enabled ? false : shouldAllowHttpTransport, enabled ? false : shouldForceHttpTransport,
+  );
 }
 
 export function getClient() {

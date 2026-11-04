@@ -1,5 +1,6 @@
 export {
-  destroy, disconnect, downloadMedia, fetchCurrentUser, repairFileReference, abortChatRequests, abortRequestGroup,
+  updateProxySettings, destroy, disconnect, downloadMedia, fetchCurrentUser, repairFileReference,
+  abortChatRequests, abortRequestGroup,
   setForceHttpTransport, setShouldDebugExportedSenders, setAllowHttpTransport, requestChannelDifference,
 } from './client';
 

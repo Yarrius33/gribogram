@@ -201,6 +201,7 @@ import Transition from '../ui/Transition';
 import AnimatedCounter from './AnimatedCounter';
 import Avatar from './Avatar';
 import Icon from './icons/Icon';
+import LocalAiTools from './LocalAiTools';
 import PaymentMessageConfirmDialog from './PaymentMessageConfirmDialog';
 import ReactionAnimatedEmoji from './reactions/ReactionAnimatedEmoji';
 
@@ -2246,6 +2247,9 @@ const Composer = ({
               idPrefix={type}
               forceDarkTheme={isInStoryViewer}
             />
+          )}
+          {hasText && !isComposerBlocked && !isInStoryViewer && (
+            <LocalAiTools key={`${chatId}:${threadId}`} getHtml={getHtml} onUpdate={setHtml} />
           )}
           <MessageInput
             ref={inputRef}

@@ -977,9 +977,11 @@ async function uploadMedia(message: ApiMessage, attachment: ApiAttachment, onPro
             w: width,
             h: height,
             supportsStreaming: true,
+            roundMessage: quick.isRound ? true : undefined,
           }));
         }
       }
+      if (isVideo && quick.isGif) attributes.push(new GramJs.DocumentAttributeAnimated());
     }
 
     if (audio) {

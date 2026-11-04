@@ -18,7 +18,7 @@ import useThrottledCallback from '../../../../hooks/useThrottledCallback';
 
 const ANDROID_KEYBOARD_HIDE_DELAY_MS = 350;
 const SWIPE_ANIMATION_DURATION = 150;
-const QUICK_REACTION_DOUBLE_TAP_DELAY = 200;
+const MESSAGE_DOUBLE_TAP_DELAY = 200;
 const QUICK_REACTION_AREA_WIDTH = 3 * REM;
 const QUICK_REACTION_AREA_HEIGHT = Number(REM);
 const GROUP_MESSAGE_HOVER_ATTRIBUTE = 'data-is-document-group-hover';
@@ -94,32 +94,37 @@ export default function useOuterHandlers(
     }
   }
 
-  function handleDoubleTap() {
-    sendDefaultReaction({
-      chatId,
-      messageId,
-    });
+  function handleDoubleTap(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+    selectMessage(e);
   }
 
   function handleClick(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+    const target = e.target as HTMLElement;
+    const isInteractive = Boolean(target.closest('a, button, input, textarea, [role="button"], video, audio'));
+    if (!IS_TOUCH_ENV && !isInteractive && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+      e.preventDefault();
+      selectMessage(e);
+      return;
+    }
+
     if (isInSelectMode) {
       selectMessage(e);
       return;
     }
 
-    if (!IS_TOUCH_ENV) return;
+    if (!IS_TOUCH_ENV || isInteractive) return;
 
     if (doubleTapTimeoutRef.current) {
-      clearInterval(doubleTapTimeoutRef.current);
+      clearTimeout(doubleTapTimeoutRef.current);
       doubleTapTimeoutRef.current = undefined;
-      handleDoubleTap();
+      handleDoubleTap(e);
       return;
     }
 
     doubleTapTimeoutRef.current = setTimeout(() => {
       doubleTapTimeoutRef.current = undefined;
       handleTap(e);
-    }, QUICK_REACTION_DOUBLE_TAP_DELAY);
+    }, MESSAGE_DOUBLE_TAP_DELAY);
   }
 
   function handleContextMenu(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
@@ -184,6 +189,10 @@ export default function useOuterHandlers(
     containerRef, isInSelectMode, messageId, markSwiped, unmarkSwiped, canReply, isContextMenuShown,
     getIsMessageListReady,
   ]);
+
+  useEffect(() => {
+    return () => clearTimeout(doubleTapTimeoutRef.current);
+  }, []);
 
   function handleMouseLeave(e: React.MouseEvent<HTMLDivElement>) {
     // Because `mousemove` event is throttled, we need to also throttle `mouseleave` event,

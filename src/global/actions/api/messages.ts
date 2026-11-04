@@ -44,6 +44,9 @@ import { ensureProtocol, isMixedScriptUrl } from '../../../util/browser/url';
 import { IS_IOS } from '../../../util/browser/windowEnvironment';
 import { copyTextToClipboardFromPromise } from '../../../util/clipboard';
 import { isDeepLink } from '../../../util/deepLinkParser';
+import {
+  isDeletedArchiveEnabled, listArchivedMessages, rememberReceivedMessages, selectArchivedMessageWindow,
+} from '../../../util/deletedMessageArchive';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import {
   areSortedArraysIntersecting,
@@ -56,6 +59,7 @@ import {
 import { getMessageKey, isLocalMessageId } from '../../../util/keys/messageKey';
 import { getTranslationFn, type RegularLangFnParameters } from '../../../util/localization';
 import { formatStarsAsText } from '../../../util/localization/format';
+import { prepareMessageContentCopy } from '../../../util/messageContentCopy';
 import { oldTranslate } from '../../../util/oldLangProvider';
 import { debounce, onTickEnd, rafPromise } from '../../../util/schedulers';
 import { getServerTime } from '../../../util/serverTime';
@@ -171,6 +175,8 @@ import { updateWithLocalMedia } from '../apiUpdaters/messages';
 import { deleteMessages } from '../apiUpdaters/messages';
 
 const AUTOLOGIN_TOKEN_KEY = 'autologin_token';
+
+const contentCopyOperations = new Set<string>();
 
 const uploadProgressCallbacks = new Map<MessageKey, ApiOnProgress>();
 
@@ -322,7 +328,19 @@ addActionHandler('loadMessage', async (global, actions, payload): Promise<void> 
     return;
   }
 
+  const archiveAccountId = global.currentUserId;
   const result = await callApi('fetchMessage', { chat, messageId });
+  if ((!result || result === MESSAGE_DELETED) && archiveAccountId && isDeletedArchiveEnabled(archiveAccountId)) {
+    const saved = (await listArchivedMessages(archiveAccountId, chatId).catch(() => []))
+      .find(({ message }) => message.id === messageId);
+    if (saved) {
+      global = getGlobal();
+      if (global.currentUserId !== archiveAccountId) return;
+      global = addChatMessagesById(global, chatId, { [messageId]: saved.message });
+      setGlobal(global);
+      return;
+    }
+  }
   if (!result) {
     return undefined;
   }
@@ -353,14 +371,22 @@ addActionHandler('loadMessagesById', async (global, actions, payload): Promise<v
     return;
   }
 
+  const archiveAccountId = global.currentUserId;
   const messages = await callApi('fetchMessagesById', {
     chat,
     messageIds,
   });
-  if (!messages) return;
+  const archived = archiveAccountId && isDeletedArchiveEnabled(archiveAccountId)
+    ? (await listArchivedMessages(archiveAccountId, chatId).catch(() => []))
+      .filter(({ message }) => messageIds.includes(message.id)).map(({ message }) => message) : [];
+  if (!messages && !archived.length) return;
 
   global = getGlobal();
-  global = addChatMessagesById(global, chatId, buildCollectionByKey(messages, 'id'));
+  if (global.currentUserId !== archiveAccountId) return;
+  if (archiveAccountId && messages) {
+    void rememberReceivedMessages(archiveAccountId, messages).catch(() => undefined);
+  }
+  global = addChatMessagesById(global, chatId, buildCollectionByKey([...archived, ...(messages || [])], 'id'));
   setGlobal(global);
 });
 
@@ -1631,7 +1657,8 @@ addActionHandler('forwardMessages', (global, actions, payload): ActionReturnType
   const { toChatId } = selectTabState(global, tabId).forwardMessages;
   const toChat = toChatId ? selectChat(global, toChatId) : undefined;
   if (!toChat) return;
-  executeForwardMessages(global, { chat: toChat, isSilent, scheduledAt, scheduleRepeatPeriod }, tabId);
+  void executeForwardMessages(global, { chat: toChat, isSilent, scheduledAt, scheduleRepeatPeriod }, tabId)
+    .catch(() => actions.showNotification({ message: { key: 'GriboContentCopyFailed' }, tabId }));
 });
 
 async function executeForwardMessages(global: GlobalState, sendParams: SendMessageParams, tabId: number) {
@@ -1649,7 +1676,7 @@ async function executeForwardMessages(global: GlobalState, sendParams: SendMessa
   const toChat = toChatId ? selectChat(global, toChatId) : undefined;
 
   const messages = fromChatId && messageIds
-    ? messageIds
+    ? messageIds.slice()
       .sort((a, b) => a - b)
       .map((id) => selectChatMessage(global, fromChatId, id)).filter(Boolean)
     : undefined;
@@ -1663,74 +1690,115 @@ async function executeForwardMessages(global: GlobalState, sendParams: SendMessa
   const lastMessageId = selectChatLastMessageId(global, toChat.id);
   const localMessages: SendMessageParams[] = [];
 
-  const [realMessages, serviceMessages] = partition(messages, (m) => !isServiceNotificationMessage(m));
-  const forwardableRealMessages = realMessages.filter((message) => selectCanForwardMessage(global, message));
-  if (forwardableRealMessages.length) {
-    const messageSlices = global.config?.maxForwardedCount
-      ? splitMessagesForForwarding(forwardableRealMessages, global.config.maxForwardedCount)
-      : [forwardableRealMessages];
-    for (const slice of messageSlices) {
-      const forwardParams: ForwardMessagesParams = {
-        fromChat,
-        toChat,
-        toThreadId,
-        messages: slice,
+  const operationKey = `${tabId}:${fromChatId}:${toChatId}:${messageIds?.join(',')}`;
+  if (contentCopyOperations.has(operationKey)) return undefined;
+  contentCopyOperations.add(operationKey);
+  try {
+    const originalUserId = global.currentUserId;
+    const contentCopies = messages.filter((message) => (
+      fromChat.isProtected || message.isProtected || message.localDeletedAt
+    ));
+    const preparedCopies: SendMessageParams[] = [];
+    if (contentCopies.length) {
+      getActions().showNotification({ message: { key: 'GriboContentCopyPreparing' }, tabId });
+    }
+    try {
+      for (const message of contentCopies) {
+        const copy = await prepareMessageContentCopy(message, noCaptions);
+        preparedCopies.push({
+          ...copy, chat: toChat, replyInfo: selectMessageReplyInfo(global, toChat.id, toThreadId),
+          isSilent, scheduledAt, scheduleRepeatPeriod, sendAs, lastMessageId, messagePriceInStars,
+          effectId: forwardEffectId,
+        });
+      }
+    } catch {
+      getActions().showNotification({ message: { key: 'GriboContentCopyFailed' }, tabId });
+      return undefined;
+    }
+    global = getGlobal();
+    if (global.currentUserId !== originalUserId) return undefined;
+    const currentForward = selectTabState(global, tabId).forwardMessages;
+    if (currentForward.fromChatId !== fromChatId || currentForward.toChatId !== toChatId
+      || (currentForward.toThreadId || MAIN_THREAD_ID) !== toThreadId
+      || currentForward.noAuthors !== noAuthors || currentForward.noCaptions !== noCaptions
+      || currentForward.messageIds?.join(',') !== messageIds?.join(',')) return undefined;
+    const remainingMessages = messages.filter((message) => !contentCopies.includes(message));
+    const [realMessages, serviceMessages] = partition(remainingMessages, (m) => !isServiceNotificationMessage(m));
+    const forwardableRealMessages = realMessages.filter((message) => selectCanForwardMessage(global, message));
+    if (forwardableRealMessages.length) {
+      const messageSlices = global.config?.maxForwardedCount
+        ? splitMessagesForForwarding(forwardableRealMessages, global.config.maxForwardedCount)
+        : [forwardableRealMessages];
+      for (const slice of messageSlices) {
+        const forwardParams: ForwardMessagesParams = {
+          fromChat,
+          toChat,
+          toThreadId,
+          messages: slice,
+          isSilent,
+          scheduledAt,
+          scheduleRepeatPeriod,
+          sendAs,
+          withMyScore,
+          noAuthors,
+          noCaptions,
+          isCurrentUserPremium,
+          wasDrafted: Boolean(draft),
+          lastMessageId,
+          messagePriceInStars,
+          effectId: forwardEffectId,
+        };
+
+        if (!messagePriceInStars) {
+          callApi('forwardMessages', forwardParams);
+        } else {
+          const forwardedLocalMessagesSlice = await callApi('forwardMessagesLocal', forwardParams);
+          localMessages.push({
+            ...sendParams,
+            forwardParams: { ...forwardParams, forwardedLocalMessagesSlice },
+            forwardedLocalMessagesSlice,
+          });
+        }
+      }
+    }
+
+    for (const message of serviceMessages) {
+      const { text, entities } = message.content.text || {};
+      const { sticker } = message.content;
+
+      const replyInfo = selectMessageReplyInfo(global, toChat.id, toThreadId);
+
+      const params: SendMessageParams = {
+        chat: toChat,
+        replyInfo,
+        text,
+        entities,
+        sticker,
         isSilent,
         scheduledAt,
         scheduleRepeatPeriod,
         sendAs,
-        withMyScore,
-        noAuthors,
-        noCaptions,
-        isCurrentUserPremium,
-        wasDrafted: Boolean(draft),
         lastMessageId,
-        messagePriceInStars,
-        effectId: forwardEffectId,
       };
 
-      if (!messagePriceInStars) {
-        callApi('forwardMessages', forwardParams);
-      } else {
-        const forwardedLocalMessagesSlice = await callApi('forwardMessagesLocal', forwardParams);
-        localMessages.push({
-          ...sendParams,
-          forwardParams: { ...forwardParams, forwardedLocalMessagesSlice },
-          forwardedLocalMessagesSlice,
-        });
-      }
+      await sendMessageOrReduceLocal(global, params, localMessages);
     }
+
+    for (const copy of preparedCopies) {
+      if (messagePriceInStars) await sendMessageOrReduceLocal(global, copy, localMessages);
+      else await sendMessage(global, copy);
+    }
+
+    global = getGlobal();
+    global = updateTabState(global, {
+      forwardMessages: {},
+      isShareMessageModalShown: false,
+    }, tabId);
+    setGlobal(global);
+    return localMessages;
+  } finally {
+    contentCopyOperations.delete(operationKey);
   }
-
-  for (const message of serviceMessages) {
-    const { text, entities } = message.content.text || {};
-    const { sticker } = message.content;
-
-    const replyInfo = selectMessageReplyInfo(global, toChat.id, toThreadId);
-
-    const params: SendMessageParams = {
-      chat: toChat,
-      replyInfo,
-      text,
-      entities,
-      sticker,
-      isSilent,
-      scheduledAt,
-      scheduleRepeatPeriod,
-      sendAs,
-      lastMessageId,
-    };
-
-    await sendMessageOrReduceLocal(global, params, localMessages);
-  }
-
-  global = getGlobal();
-  global = updateTabState(global, {
-    forwardMessages: {},
-    isShareMessageModalShown: false,
-  }, tabId);
-  setGlobal(global);
-  return localMessages;
 }
 
 async function loadViewportMessages<T extends GlobalState>(
@@ -1787,11 +1855,17 @@ async function loadViewportMessages<T extends GlobalState>(
     return;
   }
 
+  global = getGlobal();
+  const archiveUserId = global.currentUserId;
+  if (archiveUserId) void rememberReceivedMessages(archiveUserId, result.messages).catch(() => undefined);
+  const archived = archiveUserId && isDeletedArchiveEnabled(archiveUserId)
+    ? await listArchivedMessages(archiveUserId, chatId).catch(() => []) : [];
   const {
     messages, count, topics,
   } = result;
 
   global = getGlobal();
+  if (global.currentUserId !== archiveUserId) return;
 
   const localTypingDrafts = selectThreadLocalStateParam(global, chatId, threadId, 'typingDraftIdByRandomId');
   const typingDraftMessages = localTypingDrafts ? Object.values(localTypingDrafts)
@@ -1800,7 +1874,15 @@ async function loadViewportMessages<T extends GlobalState>(
   const localMessages = chatId === SERVICE_NOTIFICATIONS_USER_ID
     ? global.serviceNotifications.filter(({ isDeleted }) => !isDeleted).map(({ message }) => message)
     : typingDraftMessages;
-  const allMessages = ([] as ApiMessage[]).concat(messages, localMessages);
+  const serverIds = messages.map(({ id }) => id);
+  const archivedInThread = archived.map(({ message }) => message)
+    .filter((message) => selectThreadIdFromMessage(global, message) === threadId);
+  const archivedMessages = selectArchivedMessageWindow(
+    archivedInThread, serverIds, offsetId,
+    direction === LoadMoreDirection.Backwards ? 'backwards'
+      : direction === LoadMoreDirection.Forwards ? 'forwards' : 'around', sliceSize,
+  );
+  const allMessages = ([] as ApiMessage[]).concat(messages, localMessages, archivedMessages);
   const byId = buildCollectionByKey(allMessages, 'id');
   const ids = Object.keys(byId).map(Number);
 

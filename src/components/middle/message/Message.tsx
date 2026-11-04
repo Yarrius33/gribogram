@@ -77,6 +77,7 @@ import {
   selectAnimatedEmoji,
   selectCanAutoLoadMedia,
   selectCanAutoPlayMedia,
+  selectCanForwardMessage,
   selectCanReplyToMessage,
   selectChat,
   selectChatFullInfo,
@@ -86,7 +87,6 @@ import {
   selectDefaultReaction,
   selectForwardedSender,
   selectFullWebPageFromMessage,
-  selectIsChatProtected,
   selectIsChatRestricted,
   selectIsChatWithBot,
   selectIsChatWithSelf,
@@ -261,7 +261,7 @@ type StateProps = {
   uploadProgress?: number;
   isInDocumentGroup: boolean;
   isProtected?: boolean;
-  isChatProtected?: boolean;
+  canForwardContent?: boolean;
   isFocused?: boolean;
   focusDirection?: FocusDirection;
   focusedQuote?: string;
@@ -389,7 +389,7 @@ const Message = ({
   isInDocumentGroup,
   isLoadingComments,
   isProtected,
-  isChatProtected,
+  canForwardContent,
   isFocused,
   focusDirection,
   focusedQuote,
@@ -596,8 +596,7 @@ const Message = ({
     && !isInDocumentGroupNotLast
     && !isStoryMention
   );
-  const canForward = isChannel && !isScheduled && message.isForwardingAllowed
-    && !isChatProtected;
+  const canForward = isChannel && !isScheduled && canForwardContent;
   const canFocus = Boolean(isPinnedList
     || (forwardInfo
       && (forwardInfo.isChannelPost || isChatWithSelf || isRepliesChat || isAnonymousForwards)
@@ -2163,7 +2162,7 @@ export default memo(withGlobal<OwnProps>(
       storySender,
       isInDocumentGroup,
       isProtected: selectIsMessageProtected(global, message),
-      isChatProtected: selectIsChatProtected(global, chatId),
+      canForwardContent: selectCanForwardMessage(global, message),
       isFocused,
       isForwarding,
       reactionMessage,

@@ -11,6 +11,8 @@ import useHistoryBack from '../../../hooks/useHistoryBack';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
+import DeletedMessagesSettings from '../../common/DeletedMessagesSettings';
+import ProxySettings from '../../common/ProxySettings';
 import Checkbox from '../../ui/Checkbox';
 import ListItem from '../../ui/ListItem';
 import RangeSlider from '../../ui/RangeSlider';
@@ -142,6 +144,8 @@ const SettingsDataStorage = ({
 
   return (
     <div className="settings-content custom-scroll">
+      <DeletedMessagesSettings />
+      <ProxySettings />
       {renderAutoDownloadBlock(
         lang('AutoDownloadPhotosTitle'),
         'Photo',

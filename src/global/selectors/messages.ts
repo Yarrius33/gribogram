@@ -69,6 +69,7 @@ import {
   isServiceNotificationMessage,
   isUserRightBanned,
 } from '../helpers';
+import { canCopyMessageAsNew } from '../helpers/messages';
 import { getMessageReplyInfo } from '../helpers/replies';
 import {
   selectChat,
@@ -509,8 +510,11 @@ export function selectCanForwardMessage<T extends GlobalState>(global: T, messag
     );
   const isChatProtected = selectIsChatProtected(global, message.chatId);
   const isStoryForwardForbidden = story && ('isDeleted' in story || ('noForwards' in story && story.noForwards));
+  if (isChatProtected || message.isProtected || message.localDeletedAt) {
+    return !isLocal && !isAction && !isStoryForwardForbidden && canCopyMessageAsNew(message);
+  }
   const canForward = (
-    !isLocal && !isAction && !isChatProtected && !isStoryForwardForbidden
+    !message.localDeletedAt && !isLocal && !isAction && !isChatProtected && !isStoryForwardForbidden
     && (message.isForwardingAllowed || isServiceNotification) && !hasTtl
   );
 
@@ -595,11 +599,12 @@ export function selectAllowedMessageActionsSlow<T extends GlobalState>(
 
   const isSavedDialog = getIsSavedDialog(chat.id, threadId, global.currentUserId);
 
-  const canReply = selectCanReplyToMessage(global, message, threadId);
-  const canReplyGlobally = canReply || (!isSavedDialog && !isLocal && !isServiceNotification
-    && (isSuperGroup || isBasicGroup || isChatChannel(chat)));
+  const canReply = !message.localDeletedAt && selectCanReplyToMessage(global, message, threadId);
+  const canReplyGlobally = !message.localDeletedAt && (canReply || (!isSavedDialog && !isLocal && !isServiceNotification
+    && (isSuperGroup || isBasicGroup || isChatChannel(chat))));
 
-  let canPin = !isLocal && !isServiceNotification && !isAction && canPinMessage && !isSavedDialog;
+  let canPin = !message.localDeletedAt && !isLocal && !isServiceNotification
+    && !isAction && canPinMessage && !isSavedDialog;
   let canUnpin = false;
 
   const pinnedMessageIds = selectPinnedIds(global, chat.id, threadId);
@@ -612,7 +617,8 @@ export function selectAllowedMessageActionsSlow<T extends GlobalState>(
   const canNotDeleteBoostMessage = isBoostMessage && isOwn
     && !chat.isCreator && !getHasAdminRight(chat, 'deleteMessages');
 
-  const canDelete = (!isLocal || isFailed) && !isServiceNotification && !canNotDeleteBoostMessage && (
+  const canDelete = !message.localDeletedAt && (!isLocal || isFailed) && !isServiceNotification
+    && !canNotDeleteBoostMessage && (
     isPrivate
     || isOwn
     || isBasicGroup
@@ -631,14 +637,14 @@ export function selectAllowedMessageActionsSlow<T extends GlobalState>(
 
   const hasMessageEditRight = isOwn || (isChannel && (chat.isCreator || getHasAdminRight(chat, 'editMessages')));
 
-  const canEdit = !isLocal && !isAction && isMessageEditable && hasMessageEditRight;
+  const canEdit = !message.localDeletedAt && !isLocal && !isAction && isMessageEditable && hasMessageEditRight;
 
   const hasSticker = Boolean(message.content.sticker);
   const hasFavoriteSticker = hasSticker && selectIsStickerFavorite(global, message.content.sticker!);
   const canFaveSticker = !isAction && hasSticker && !hasFavoriteSticker;
   const canUnfaveSticker = !isAction && hasFavoriteSticker;
   const canCopy = !isAction;
-  const canCopyLink = !isLocal && !isAction && (isChannel || isSuperGroup) && !isMonoforum;
+  const canCopyLink = !message.localDeletedAt && !isLocal && !isAction && (isChannel || isSuperGroup) && !isMonoforum;
   const canSelect = !isLocal && !isAction;
 
   const canDownload = selectMessageDownloadableMedia(global, message) && !hasTtl;
@@ -1135,7 +1141,7 @@ export function selectLastServiceNotification<T extends GlobalState>(global: T) 
 
 export function selectIsMessageProtected<T extends GlobalState>(global: T, message?: ApiMessage) {
   return Boolean(message && (
-    message.isProtected || selectIsChatProtected(global, message.chatId) || hasMessageTtl(message)
+    hasMessageTtl(message)
     || getMessagePaidMedia(message)
   ));
 }
@@ -1145,34 +1151,19 @@ export function selectIsChatProtected<T extends GlobalState>(global: T, chatId: 
 }
 
 export function selectHasProtectedMessage<T extends GlobalState>(global: T, chatId: string, messageIds?: number[]) {
-  if (selectChat(global, chatId)?.isProtected) {
-    return true;
-  }
-
   if (!messageIds) {
     return false;
   }
 
   const messages = selectChatMessages(global, chatId);
 
-  return messageIds.some((messageId) => messages[messageId]?.isProtected);
+  return messageIds.some((messageId) => selectIsMessageProtected(global, messages[messageId]));
 }
 
 export function selectCanForwardMessages<T extends GlobalState>(global: T, chatId: string, messageIds?: number[]) {
-  if (selectChat(global, chatId)?.isProtected) {
-    return false;
-  }
-
-  if (!messageIds) {
-    return false;
-  }
-
+  if (!messageIds?.length) return false;
   const messages = selectChatMessages(global, chatId);
-
-  return messageIds
-    .map((id) => messages[id])
-    .every((message) => message && !hasMessageTtl(message)
-      && (message.isForwardingAllowed || isServiceNotificationMessage(message)));
+  return messageIds.every((id) => messages[id] && selectCanForwardMessage(global, messages[id]));
 }
 
 export function selectHasIpRevealingMedia<T extends GlobalState>(global: T, chatId: string, messageIds: number[]) {

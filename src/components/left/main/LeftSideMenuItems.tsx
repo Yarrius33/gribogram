@@ -35,6 +35,7 @@ import { useFolderManagerForUnreadCounters } from '../../../hooks/useFolderManag
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
+import DeletedMessagesSettings from '../../common/DeletedMessagesSettings';
 import AttachBotItem from '../../middle/composer/AttachBotItem';
 import MenuItem from '../../ui/MenuItem';
 import MenuSeparator from '../../ui/MenuSeparator';
@@ -162,6 +163,7 @@ const LeftSideMenuItems = ({
       >
         {lang('MenuMyProfile')}
       </MenuItem>
+      <DeletedMessagesSettings isShortcut />
       <MenuItem
         icon="saved-messages"
         onClick={handleSelectSaved}

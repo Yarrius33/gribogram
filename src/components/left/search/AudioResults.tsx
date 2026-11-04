@@ -8,6 +8,7 @@ import { AudioOrigin, LoadMoreDirection } from '../../../types';
 
 import { SLIDE_TRANSITION_DURATION } from '../../../config';
 import { getIsDownloading } from '../../../global/helpers';
+import { isMessageCopyRestricted } from '../../../global/helpers/messages';
 import { selectMessageDownloadableMedia } from '../../../global/selectors/media';
 import { formatMonthAndYear, toYearMonth } from '../../../util/dates/dateFormat';
 import { parseSearchResultKey } from '../../../util/keys/searchResultKey';
@@ -115,7 +116,7 @@ const AudioResults: FC<OwnProps & StateProps> = ({
               className="scroll-item"
               onPlay={handlePlayAudio}
               onDateClick={handleMessageFocus}
-              canDownload={!chatsById[message.chatId]?.isProtected && !message.isProtected}
+              canDownload={!isMessageCopyRestricted(message)}
               isDownloading={getIsDownloading(activeDownloads, media)}
             />
           </div>

@@ -53,6 +53,7 @@ import {
   selectCurrentChat,
   selectCurrentMessageList,
   selectForwardedMessageIdsByGroupId,
+  selectIsChatProtected,
   selectIsRightColumnShown,
   selectIsViewportNewest,
   selectMessageIdsByGroupId,
@@ -553,6 +554,10 @@ addActionHandler('openForwardMenu', (global, actions, payload): ActionReturnType
       messageIds: groupedMessageIds || messageIds,
       storyId,
       withMyScore,
+      noAuthors: selectIsChatProtected(global, fromChatId) || (messageIds || []).some((id) => {
+        const message = selectChatMessage(global, fromChatId, id);
+        return message?.isProtected || Boolean(message?.localDeletedAt);
+      }),
     },
     isShareMessageModalShown: true,
   }, tabId);

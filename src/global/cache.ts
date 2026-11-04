@@ -711,7 +711,8 @@ function reduceMessages<T extends GlobalState>(global: T): GlobalState['messages
         ...thread,
         localState: {
           ...thread.localState,
-          listedIds: thread.localState?.lastViewportIds,
+          listedIds: thread.localState?.lastViewportIds?.filter((id) => !current.byId[id]?.localDeletedAt),
+          lastViewportIds: thread.localState?.lastViewportIds?.filter((id) => !current.byId[id]?.localDeletedAt),
           typingStatus: undefined,
         },
       };
@@ -719,7 +720,7 @@ function reduceMessages<T extends GlobalState>(global: T): GlobalState['messages
     }, {} as GlobalState['messages']['byChatId'][string]['threadsById']);
 
     const cleanedById = Object.values(byId).reduce((acc, message) => {
-      if (!message || message.isTypingDraft) return acc;
+      if (!message || message.isTypingDraft || message.localDeletedAt) return acc;
 
       let cleanedMessage = omitLocalMedia(message);
       cleanedMessage = omitLocalPaidReactions(cleanedMessage);

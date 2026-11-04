@@ -24,6 +24,7 @@ import { MAIN_THREAD_ID } from '../../api/types';
 import { AudioOrigin, MediaViewerOrigin, NewChatMembersProgress } from '../../types';
 
 import { MEMBERS_SLICE, PROFILE_SENSITIVE_AREA, SHARED_MEDIA_SLICE, SLIDE_TRANSITION_DURATION } from '../../config';
+import { isMessageCopyRestricted } from '../../global/helpers/messages';
 import { selectActiveGiftsCollectionId } from '../../global/selectors/payments';
 
 const CONTENT_PANEL_SHOW_DELAY = 300;
@@ -887,7 +888,7 @@ const Profile = ({
             <Media
               key={id}
               message={messagesById[id]}
-              isProtected={isChatProtected || messagesById[id].isProtected}
+              isProtected={isMessageCopyRestricted(messagesById[id])}
               canAutoPlay={canAutoPlayGifs}
               observeIntersection={observeIntersectionForMedia}
               onClick={handleSelectMedia}
@@ -924,7 +925,7 @@ const Profile = ({
             <WebLink
               key={id}
               message={messagesById[id]}
-              isProtected={isChatProtected || messagesById[id].isProtected}
+              isProtected={isMessageCopyRestricted(messagesById[id])}
               observeIntersection={observeIntersectionForMedia}
               onMessageClick={handleMessageFocus}
             />
@@ -940,7 +941,7 @@ const Profile = ({
               className="scroll-item"
               onPlay={handlePlayAudio}
               onDateClick={handleMessageFocus}
-              canDownload={!isChatProtected && !messagesById[id].isProtected}
+              canDownload={!isMessageCopyRestricted(messagesById[id])}
               isDownloading={getIsDownloading(activeDownloads, messagesById[id].content.audio!)}
             />
           ))
@@ -962,7 +963,7 @@ const Profile = ({
                 className="scroll-item"
                 onPlay={handlePlayAudio}
                 onDateClick={handleMessageFocus}
-                canDownload={!isChatProtected && !message.isProtected}
+                canDownload={!isMessageCopyRestricted(message)}
                 isDownloading={getIsDownloading(activeDownloads, media)}
               />
             );

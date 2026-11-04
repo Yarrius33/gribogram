@@ -149,6 +149,32 @@ const ChatList = ({
     archiveSettings, isSaved, isActive, openChat, openNextChat, orderedIds, shouldDisplayArchive, isMainList,
   ]);
 
+  useEffect(() => {
+    if (!isActive) return undefined;
+    const container = containerRef.current;
+    if (!container) return undefined;
+
+    function handleListKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement;
+      if (!target.classList.contains('ListItem-button')) return;
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return;
+      const buttons = Array.from(container!.querySelectorAll<HTMLElement>('.ListItem-button[tabindex="0"]'));
+      const index = buttons.indexOf(target);
+      if (index < 0) return;
+      event.preventDefault();
+      if (event.key === 'Enter') {
+        target.click();
+        return;
+      }
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      buttons[Math.max(0, Math.min(buttons.length - 1, index + delta))]?.focus();
+    }
+
+    container.addEventListener('keydown', handleListKeyDown);
+    return () => container.removeEventListener('keydown', handleListKeyDown);
+  }, [isActive]);
+
   const { observe } = useIntersectionObserver({
     rootRef: containerRef,
     throttleMs: INTERSECTION_THROTTLE,

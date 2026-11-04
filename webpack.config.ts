@@ -28,7 +28,7 @@ const {
   HTTPS_KEY_PATH = '',
 } = process.env;
 
-const DEFAULT_APP_TITLE = `Telegram Web A (MOD)${APP_ENV !== 'production' ? ' Beta' : ''}`;
+const DEFAULT_APP_TITLE = `GriboGram${APP_ENV !== 'production' ? ' Beta' : ''}`;
 
 // GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
 process.env.BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
@@ -201,8 +201,8 @@ export default function createConfig(
       ),
       ...(APP_MOCKED_CLIENT === '1'
         ? [new NormalModuleReplacementPlugin(
-          /src[\\/]lib[\\/]gramjs[\\/]client[\\/]TelegramClient\.js/,
-          './MockClient.ts',
+          /(?:^|[\\/])lib[\\/]gramjs[\\/]client[\\/]TelegramClient(?:\.[jt]s)?$/,
+          path.resolve(__dirname, 'src/lib/gramjs/client/MockClient.ts'),
         )]
         : []),
       new HtmlWebpackPlugin({
