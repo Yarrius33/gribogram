@@ -27,7 +27,7 @@ import ProxySettings from '../common/ProxySettings';
 import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 
-import blankUrl from '../../assets/blank.png';
+import logoUrl from '../../assets/gribogram-red.svg';
 
 type StateProps = {
   auth: GlobalState['auth'];
@@ -79,7 +79,7 @@ const AuthCode = ({
     return new QrCodeStyling({
       width: QR_SIZE,
       height: QR_SIZE,
-      image: blankUrl,
+      image: logoUrl,
       margin: 10,
       type: 'svg',
       dotsOptions: {
