@@ -7,10 +7,15 @@ redirects = []
 [functions."*"]
 
 [build]
-publish = "C:\\Users\\ROG\\Desktop\\.клиент\\telegram-tt-master\\dist\\client"
+publish = "dist"
 publishOrigin = "ui"
 commandOrigin = "ui"
-command = "remix vite:build"
+command = "npm run build:production"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
 
 [build.environment]
 

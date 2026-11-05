@@ -18,7 +18,6 @@ import type {
 } from '../../types';
 
 import {
-  APP_CODE_NAME,
   DEBUG, DEBUG_GRAMJS, IS_TEST, LANG_PACK, UPLOAD_WORKERS,
 } from '../../../config';
 import { pause } from '../../../util/schedulers';
@@ -111,7 +110,8 @@ export async function init(initialArgs: ApiInitialArgs, onConnected?: NoneToVoid
     {
       deviceModel: navigator.userAgent || userAgent || DEFAULT_USER_AGENT,
       systemVersion: platform || DEFAULT_PLATFORM,
-      appVersion: `${APP_VERSION} ${APP_CODE_NAME}`,
+      // This value is shown by Telegram in the list of active sessions.
+      appVersion: `Gribogram Beta ${APP_VERSION}`,
       useWSS: true,
       additionalDcsDisabled: IS_TEST,
       shouldDebugExportedSenders,
