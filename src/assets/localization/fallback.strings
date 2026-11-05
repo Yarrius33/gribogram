@@ -2770,3 +2770,4 @@
 "GriboContentCopyFailed" = "Could not copy the full message. Its media may be unavailable, the file could not be downloaded, or the content type is unsupported. Check failed messages before retrying.";
 "GriboArchivePreviewOnly" = "Only a preview was cached. The original media file was not preserved.";
 "GriboContentCopyPreparing" = "Preparing message copies and downloading media…";
+"GriboExtraSettings" = "GriboGram settings";

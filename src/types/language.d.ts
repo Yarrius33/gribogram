@@ -2042,6 +2042,7 @@ export interface LangPair {
   'GriboContentCopyFailed': undefined;
   'GriboArchivePreviewOnly': undefined;
   'GriboContentCopyPreparing': undefined;
+  'GriboExtraSettings': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {

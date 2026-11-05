@@ -1,5 +1,5 @@
 import type React from '../../../lib/teact/teact';
-import { memo, useMemo } from '../../../lib/teact/teact';
+import { memo, useMemo, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiUser } from '../../../api/types';
@@ -36,9 +36,11 @@ import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 import DeletedMessagesSettings from '../../common/DeletedMessagesSettings';
+import ProxySettings from '../../common/ProxySettings';
 import AttachBotItem from '../../middle/composer/AttachBotItem';
 import MenuItem from '../../ui/MenuItem';
 import MenuSeparator from '../../ui/MenuSeparator';
+import Modal from '../../ui/Modal';
 import NestedMenuItem from '../../ui/NestedMenuItem';
 import Switcher from '../../ui/Switcher';
 import Toggle from '../../ui/Toggle';
@@ -87,6 +89,7 @@ const LeftSideMenuItems = ({
     openChatWithInfo,
   } = getActions();
   const lang = useLang();
+  const [isExtraSettingsOpen, setIsExtraSettingsOpen] = useState(false);
 
   const animationLevelValue = animationLevel !== ANIMATION_LEVEL_MIN
     ? (animationLevel === ANIMATION_LEVEL_MAX ? 'max' : 'mid') : 'min';
@@ -163,7 +166,18 @@ const LeftSideMenuItems = ({
       >
         {lang('MenuMyProfile')}
       </MenuItem>
-      <DeletedMessagesSettings isShortcut />
+      <MenuItem icon="settings" onClick={() => setIsExtraSettingsOpen(true)}>
+        {lang('GriboExtraSettings')}
+      </MenuItem>
+      <Modal
+        title={lang('GriboExtraSettings')}
+        isOpen={isExtraSettingsOpen}
+        onClose={() => setIsExtraSettingsOpen(false)}
+        hasCloseButton
+      >
+        <DeletedMessagesSettings />
+        <ProxySettings />
+      </Modal>
       <MenuItem
         icon="saved-messages"
         onClick={handleSelectSaved}
