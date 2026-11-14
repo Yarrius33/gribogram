@@ -2771,3 +2771,5 @@
 "GriboArchivePreviewOnly" = "Only a preview was cached. The original media file was not preserved.";
 "GriboContentCopyPreparing" = "Preparing message copies and downloading media…";
 "GriboExtraSettings" = "GriboGram settings";
+"GriboLoginTab" = "Login";
+"GriboProxyTab" = "Proxy";
