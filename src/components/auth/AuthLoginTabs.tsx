@@ -28,7 +28,8 @@ const AuthLoginTabs = ({ children }: OwnProps) => {
         activeTab={activeTab}
         onSwitchTab={setActiveTab}
       />
-      {activeTab === 0 ? children : <ProxySettings />}
+      <div className={activeTab === 0 ? styles.panel : styles.hiddenPanel}>{children}</div>
+      <div className={activeTab === 1 ? styles.panel : styles.hiddenPanel}><ProxySettings /></div>
     </div>
   );
 };
