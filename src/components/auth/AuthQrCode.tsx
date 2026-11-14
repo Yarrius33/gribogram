@@ -23,11 +23,11 @@ import useMediaTransitionDeprecated from '../../hooks/useMediaTransitionDeprecat
 import useMultiaccountInfo from '../../hooks/useMultiaccountInfo';
 
 import AnimatedIcon from '../common/AnimatedIcon';
-import ProxySettings from '../common/ProxySettings';
 import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 
 import logoUrl from '../../assets/gribogram-red.svg';
+import AuthLoginTabs from './AuthLoginTabs';
 
 type StateProps = {
   auth: GlobalState['auth'];
@@ -173,6 +173,7 @@ const AuthCode = ({
         />
       )}
       <div className="auth-form qr">
+        <AuthLoginTabs>
         <div className="qr-outer">
           <div
             className={buildClassName('qr-inner', transitionClassNames)}
@@ -215,7 +216,7 @@ const AuthCode = ({
             {continueText}
           </Button>
         )}
-        <ProxySettings />
+        </AuthLoginTabs>
       </div>
     </div>
   );
