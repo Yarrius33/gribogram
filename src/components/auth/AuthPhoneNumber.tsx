@@ -22,12 +22,12 @@ import useLangString from '../../hooks/useLangString';
 import useLastCallback from '../../hooks/useLastCallback';
 import useMultiaccountInfo from '../../hooks/useMultiaccountInfo';
 
-import ProxySettings from '../common/ProxySettings';
 import Button from '../ui/Button';
 import Checkbox from '../ui/Checkbox';
 import InputText from '../ui/InputText';
 import Loading from '../ui/Loading';
 import CountryCodeInput from './CountryCodeInput';
+import AuthLoginTabs from './AuthLoginTabs';
 
 import monkeyPath from '../../assets/monkey.svg';
 
@@ -254,6 +254,7 @@ const AuthPhoneNumber = ({
         />
       )}
       <div className="auth-form">
+        <AuthLoginTabs>
         <div id="logo" />
         <h1>{lang('GriboAppName')}</h1>
         <p className="note">{lang('StartText')}</p>
@@ -322,8 +323,7 @@ const AuthPhoneNumber = ({
           )}
         </form>
 
-        <ProxySettings />
-
+        </AuthLoginTabs>
       </div>
     </div>
   );
