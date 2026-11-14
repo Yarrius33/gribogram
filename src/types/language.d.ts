@@ -2002,6 +2002,8 @@ export interface LangPair {
   'GiftPreviewToggleRegularModels': undefined;
   'AriaGiftPreviewPlay': undefined;
   'AriaGiftPreviewStop': undefined;
+  'GriboLoginTab': undefined;
+  'GriboProxyTab': undefined;
   'GriboProxyTitle': undefined;
   'GriboProxyEnable': undefined;
   'GriboProxyAddresses': undefined;
