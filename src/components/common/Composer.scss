@@ -458,6 +458,9 @@
   .input-scroller {
     --_scroller-right-gap: calc((var(--action-button-size) + var(--action-button-compact-fix) - 0.125rem));
 
+    flex: 1 1 0%;
+    min-width: 0;
+    width: 100%;
     scrollbar-gutter: stable;
     margin-right: calc(-1 * var(--_scroller-right-gap));
     padding-right: var(--_scroller-right-gap);
@@ -672,11 +675,16 @@
 #story-input-text,
 #caption-input-text {
   position: relative;
-  flex-grow: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 100%;
 
   .form-control {
+    box-sizing: border-box;
     unicode-bidi: plaintext;
     overflow: hidden;
+    min-width: 0;
+    width: 100%;
 
     height: auto;
     padding: calc((var(--base-height, 3rem) - var(--composer-text-size, 1rem) * 1.375) / 2) 0.875rem;
