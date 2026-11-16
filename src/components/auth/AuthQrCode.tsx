@@ -26,7 +26,7 @@ import AnimatedIcon from '../common/AnimatedIcon';
 import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 
-import logoUrl from '../../assets/gribogram-red.svg';
+import logoUrl from '../../assets/gribogram-brown.svg';
 import AuthLoginTabs from './AuthLoginTabs';
 
 type StateProps = {
