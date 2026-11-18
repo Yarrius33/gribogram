@@ -53,6 +53,8 @@ export function buildApiWallpaper(wallpaper: GramJs.TypeWallPaper): ApiWallpaper
 }
 
 export function buildApiSession(session: GramJs.Authorization): ApiSession {
+  const isBrowserUserAgent = /^(?:Mozilla\/|AppleWebKit\/|Chrome\/|Safari\/|Firefox\/)/i.test(session.deviceModel);
+
   return {
     isCurrent: Boolean(session.current),
     isOfficialApp: Boolean(session.officialApp),
@@ -65,6 +67,11 @@ export function buildApiSession(session: GramJs.Authorization): ApiSession {
       'deviceModel', 'platform', 'systemVersion', 'appName', 'appVersion', 'dateCreated', 'dateActive',
       'ip', 'country', 'region',
     ]),
+    // Telegram may return the browser User-Agent as deviceModel for web sessions.
+    // Show the actual platform instead of exposing the raw User-Agent in the UI.
+    ...(isBrowserUserAgent && {
+      deviceModel: session.platform || session.systemVersion || session.appName || 'Unknown device',
+    }),
   };
 }
 
